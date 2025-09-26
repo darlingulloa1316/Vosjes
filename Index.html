@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Inventario de Viajes Alexander</title>
+  <style>
+    :root {
+      --primary: #4a90e2;
+      --primary-dark: #357ab8;
+      --bg: #f5f8fa;
+      --card-bg: #ffffff;
+      --text: #333333;
+      --shadow: rgba(0,0,0,0.08);
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 12px;
+      font-family: 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .header {
+      background: var(--primary);
+      color: #fff;
+      text-align: center;
+      padding: 14px;
+      font-size: 1.4rem;
+      font-weight: 600;
+      border-radius: 6px;
+      margin-bottom: 12px;
+    }
+    details {
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      margin: 12px 0;
+      background: var(--card-bg);
+    }
+    summary {
+      list-style: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      font-size: 1.05rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    summary::marker { content: none; }
+    summary::after { content: '▶'; transition: transform 0.2s; }
+    details[open] summary::after { transform: rotate(90deg); }
+    .section-body { padding: 0 12px 12px; }
+    input, select, button, video {
+      width: 100%; padding: 12px; margin: 6px 0;
+      font-size: 1rem; border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+    video { display: none; border-radius: 6px; }
+    button {
+      background: var(--primary); color: #fff;
+      border: none; cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover { background: var(--primary-dark); }
+    .btn-small {
+      padding: 8px 12px; font-size: 0.85rem; margin: 0;
+    }
+    .table-container {
+      overflow-x: auto; margin-top: 6px;
+    }
+    table {
+      width: 100%; border-collapse: collapse;
+      font-size: 0.9rem; min-width: 360px;
+    }
+    th, td {
+      padding: 8px; text-align: left;
+      border-bottom: 1px solid #e0e0e0; white-space: nowrap;
+    }
+    th {
+      background: var(--primary); color: #fff;
+      position: sticky; top: 0;
+    }
+    .detalle-factura {
+      display: none; margin: 12px 0;
+      background: var(--card-bg); border-radius: 6px;
+      box-shadow: 0 2px 6px var(--shadow); padding: 12px;
+    }
+    .detalle-factura h3 { margin-top: 0; }
+    @media (max-width: 600px) {
+      body { padding: 8px; }
+      .header { font-size: 1.2rem; padding: 10px; }
+      summary { font-size: 1rem; padding: 10px; }
+      .section-body { padding: 0 10px 10px; }
+      input, select, button, video { font-size: 0.95rem; padding: 10px; }
+      .btn-small { font-size: 0.8rem; padding: 6px 10px; }
+      table { font-size: 0.85rem; min-width: 260px; }
+      th, td { padding: 6px; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="header">Inventario de Viajes Alexander</header>
+
+  <!-- Sección Agregar Producto -->
+  <details>
+    <summary>Agregar Producto</summary>
+    <div class="section-body">
+      <input type="text" id="codigo" placeholder="Código de barras" readonly/>
+      <button type="button" onclick="startBarcodeScanner('inv')">Escanear código</button>
+      <video id="barcode-video-inv"></video>
+      <input type="file" id="barcode-file-inv" accept="image/*" style="display:none;"/>
+
+      <input type="text" id="nombre" placeholder="Nombre del artículo"/>
+      <input type="number" id="cantidad" placeholder="Cantidad inicial"/>
+      <input type="number" id="precio" placeholder="Precio unitario"/>
+      <button type="button" onclick="agregarProducto()">Guardar</button>
+    </div>
+  </details>
+
+  <!-- Sección Inventario -->
+  <details>
+    <summary>Inventario</summary>
+    <div class="section-body table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Código</th><th>Nombre</th><th>Cant.</th><th>Precio</th>
+            <th>Reponer</th><th>Eliminar</th>
+          </tr>
+        </thead>
+        <tbody id="tabla-inventario"></tbody>
+      </table>
+    </div>
+  </details>
+
+  <!-- Sección Carrito con Escáner -->
+  <details open>
+    <summary>Carrito</summary>
+    <div class="section-body">
+      <input
+        type="text"
+        id="buscar-producto"
+        placeholder="Buscar producto en inventario..."
+        oninput="filtrarProductos()"
+      />
+
+      <input type="text" id="scan-cart-codigo" placeholder="Código escaneado" readonly/>
+      <button type="button" onclick="startBarcodeScanner('cart')">
+        Escanear para carrito
+      </button>
+      <video id="barcode-video-cart"></video>
+      <input type="file" id="barcode-file-cart" accept="image/*" style="display:none;"/>
+
+      <form id="form-venta">
+        <select id="producto-venta" required></select>
+        <input type="number" id="cantidad-venta" placeholder="Cantidad vendida" required/>
+        <button type="submit">Agregar al carrito</button>
+      </form>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Producto</th><th>Cant.</th><th>Precio</th><th>Total</th><th>Eliminar</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-carrito"></tbody>
+        </table>
+      </div>
+    </div>
+  </details>
+
+  <!-- Sección Tienda -->
+  <details open>
+    <summary>Tienda</summary>
+    <div class="section-body">
+      <input type="text" id="tienda" placeholder="Nombre de la tienda"/>
+      <button type="button" onclick="finalizarFactura()">Finalizar factura</button>
+    </div>
+  </details>
+
+  <!-- Sección Facturas -->
+  <details>
+    <summary>Facturas</summary>
+    <div class="section-body table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Factura</th><th>Fecha</th><th>Tienda</th><th>Total</th>
+            <th>Ver</th><th>Eliminar</th><th>Compartir</th>
+          </tr>
+        </thead>
+        <tbody id="tabla-facturas"></tbody>
+      </table>
+    </div>
+  </details>
+
+  <!-- Sección Respaldo -->
+  <details>
+    <summary>Respaldo de la Base de Datos</summary>
+    <div class="section-body">
+      <button type="button" onclick="exportarDB()">Descargar respaldo</button>
+      <input type="file" id="import-db-file" accept=".json"/>
+      <button type="button" onclick="importarDB()">Restaurar respaldo</button>
+    </div>
+  </details>
+
+  <div id="detalle-factura" class="detalle-factura"></div>
+
+  <script>
+    let inventario = [];
+    let carrito = [];
+    let facturas = [];
+    let contadorFactura = 1;
+    let barcodeDetector;
+
+    window.onload = cargarDatos;
+
+    // Inicia escáner para inventario o carrito
+    async function startBarcodeScanner(dest) {
+      if (!('BarcodeDetector' in window)) {
+        alert('Tu navegador no soporta BarcodeDetector.');
+        return;
+      }
+      if (!barcodeDetector) {
+        barcodeDetector = new BarcodeDetector({
+          formats: ['ean_13','ean_8','code_128','qr_code']
+        });
+      }
+      const videoId = dest === 'cart' ? 'barcode-video-cart' : 'barcode-video-inv';
+      const fileId  = dest === 'cart' ? 'barcode-file-cart'  : 'barcode-file-inv';
+      const video   = document.getElementById(videoId);
+      video.style.display = 'block';
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' }
+        });
+        video.srcObject = stream;
+        video.setAttribute('playsinline', true);
+        await video.play();
+        scanLoop(dest);
+      } catch (err) {
+        stopScanner(dest);
+        if (err.name === 'NotAllowedError') {
+          alert('Permiso denegado. Selecciona una imagen.');
+          document.getElementById(fileId).style.display = 'block';
+        } else {
+          alert('Error cámara: ' + err);
+        }
+      }
+    }
+
+    // Lazo de escaneo
+    async function scanLoop(dest) {
+      const videoId = dest === 'cart' ? 'barcode-video-cart' : 'barcode-video-inv';
+      const inputId = dest === 'cart' ? 'scan-cart-codigo'    : 'codigo';
+      const video   = document.getElementById(videoId);
+      try {
+        const codes = await barcodeDetector.detect(video);
+        if (codes.length) {
+          const code = codes[0].rawValue;
+          document.getElementById(inputId).value = code;
+          stopScanner(dest);
+          if (dest === 'cart') applyCartScan(code);
+        } else {
+          requestAnimationFrame(() => scanLoop(dest));
+        }
+      } catch {
+        requestAnimationFrame(() => scanLoop(dest));
+      }
+    }
+
+    // Detiene escáner
+    function stopScanner(dest) {
+      const video = document.getElementById(
+        dest === 'cart' ? 'barcode-video-cart' : 'barcode-video-inv'
+      );
+      const tracks = video.srcObject?.getTracks() || [];
+      tracks.forEach(t => t.stop());
+      video.srcObject = null;
+      video.style.display = 'none';
+    }
+
+    // Fallback: escaneo por imagen
+    document.getElementById('barcode-file-inv')
+      .addEventListener('change', e => fileScan(e,'inv'));
+    document.getElementById('barcode-file-cart')
+      .addEventListener('change', e => fileScan(e,'cart'));
+
+    async function fileScan(e,dest) {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (!barcodeDetector) {
+        barcodeDetector = new BarcodeDetector({
+          formats:['ean_13','ean_8','code_128','qr_code']
+        });
+      }
+      try {
+        const bitmap = await createImageBitmap(file);
+        const codes = await barcodeDetector.detect(bitmap);
+        if (codes.length) {
+          const code = codes[0].rawValue;
+          const inputId = dest === 'cart' ? 'scan-cart-codigo' : 'codigo';
+          document.getElementById(inputId).value = code;
+          if (dest === 'cart') applyCartScan(code);
+        } else {
+          alert('No se detectó código.');
+        }
+      } catch (err) {
+        alert('Error escaneando imagen: ' + err);
+      }
+      e.target.value = '';
+    }
+
+    // Asigna artículo al carrito tras escaneo
+    function applyCartScan(code) {
+      const item = inventario.find(p => p.codigo === code);
+      if (item) {
+        document.getElementById('producto-venta').value = item.nombre;
+        document.getElementById('cantidad-venta').focus();
+      } else {
+        alert('Producto con código ' + code + ' no existe.');
+      }
+    }
+
+    // Carga datos iniciales
+    function cargarDatos() {
+      inventario = JSON.parse(localStorage.getItem('inventario')) || [];
+      facturas   = JSON.parse(localStorage.getItem('facturas'))   || [];
+      contadorFactura = parseInt(localStorage.getItem('contadorFactura')) || 1;
+      mostrarInventario();
+      actualizarSelectVenta();
+      cargarFacturas();
+      actualizarCarrito();
+    }
+
+    // Agrega producto al inventario
+    function agregarProducto() {
+      const codigo  = document.getElementById('codigo').value.trim();
+      const nombre  = document.getElementById('nombre').value.trim();
+      const cantidad= parseInt(document.getElementById('cantidad').value);
+      const precio  = parseFloat(document.getElementById('precio').value);
+      if (!nombre || isNaN(cantidad) || isNaN(precio)) {
+        return alert('Completa todos los campos correctamente');
+      }
+      if (codigo && inventario.some(p => p.codigo === codigo)) {
+        return alert('Código ya registrado');
+      }
+      inventario.push({ codigo, nombre, cantidad, precio });
+      localStorage.setItem('inventario', JSON.stringify(inventario));
+      ['codigo','nombre','cantidad','precio'].forEach(id=>
+        document.getElementById(id).value=''
+      );
+      mostrarInventario();
+      actualizarSelectVenta();
+    }
+
+    // Muestra tabla de inventario
+    function mostrarInventario() {
+      const tbl = document.getElementById('tabla-inventario');
+      tbl.innerHTML = '';
+      inventario.forEach((p,i) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${p.codigo||''}</td>
+          <td>${p.nombre}</td>
+          <td>${p.cantidad}</td>
+          <td>$${p.precio.toFixed(2)}</td>
+          <td><button class="btn-small" onclick="reponerStock(${i})">Reponer</button></td>
+          <td><button class="btn-small" onclick="eliminarProducto(${i})">Eliminar</button></td>
+        `;
+        tbl.appendChild(tr);
+      });
+    }
+
+    function reponerStock(i) {
+      const cant = parseInt(prompt('¿Cuántas unidades?',''));
+      if (isNaN(cant)||cant<=0) return alert('Cantidad inválida');
+      inventario[i].cantidad += cant;
+      localStorage.setItem('inventario', JSON.stringify(inventario));
+      mostrarInventario();
+      actualizarSelectVenta();
+    }
+
+    function eliminarProducto(i) {
+      if (!confirm('Eliminar producto?')) return;
+      inventario.splice(i,1);
+      localStorage.setItem('inventario', JSON.stringify(inventario));
+      mostrarInventario();
+      actualizarSelectVenta();
+    }
+
+    // Poblado del <select> de venta
+    function actualizarSelectVenta() {
+      const sel = document.getElementById('producto-venta');
+      sel.innerHTML = '';
+      inventario.forEach(p => {
+        const o = document.createElement('option');
+        o.value = p.nombre;
+        o.textContent = `${p.nombre}${p.codigo? ' ('+p.codigo+')':''}`;
+        sel.appendChild(o);
+      });
+    }
+
+    // Filtra opciones según búsqueda
+    function filtrarProductos() {
+      const term = document.getElementById('buscar-producto').value
+        .trim().toLowerCase();
+      const sel = document.getElementById('producto-venta');
+      sel.innerHTML = '';
+      inventario
+        .filter(p =>
+          p.nombre.toLowerCase().includes(term) ||
+          (p.codigo && p.codigo.toLowerCase().includes(term))
+        )
+        .forEach(p => {
+          const o = document.createElement('option');
+          o.value = p.nombre;
+          o.textContent = `${p.nombre}${p.codigo? ' ('+p.codigo+')':''}`;
+          sel.appendChild(o);
+        });
+    }
+
+    // Añade ítem al carrito
+    document.getElementById('form-venta')
+      .addEventListener('submit', e => {
+        e.preventDefault();
+        const nombre = e.target['producto-venta'].value;
+        const cant   = parseInt(e.target['cantidad-venta'].value);
+        const prod   = inventario.find(x => x.nombre===nombre);
+        if (!prod || prod.cantidad < cant) {
+          return alert('Cantidad insuficiente');
+        }
+        prod.cantidad -= cant;
+        carrito.push({ nombre, cantidad: cant, precio: prod.precio });
+        localStorage.setItem('inventario', JSON.stringify(inventario));
+        mostrarInventario();
+        filtrarProductos();
+        actualizarCarrito();
+        e.target.reset();
+      });
+
+    // Muestra carrito
+    function actualizarCarrito() {
+      const tbl = document.getElementById('tabla-carrito');
+      tbl.innerHTML = '';
+      carrito.forEach((p,i) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${p.nombre}</td>
+          <td>${p.cantidad}</td>
+          <td>$${p.precio.toFixed(2)}</td>
+          <td>$${(p.cantidad*p.precio).toFixed(2)}</td>
+          <td><button class="btn-small" onclick="eliminarCarrito(${i})">Eliminar</button></td>
+        `;
+        tbl.appendChild(tr);
+      });
+    }
+
+    function eliminarCarrito(i) {
+      const item = carrito.splice(i,1)[0];
+      const prodInv = inventario.find(x=>x.nombre===item.nombre);
+      if (prodInv) {
+        prodInv.cantidad += item.cantidad;
+        localStorage.setItem('inventario', JSON.stringify(inventario));
+      }
+      mostrarInventario();
+      filtrarProductos();
+      actualizarCarrito();
+    }
+
+    // Finaliza factura y resetea todo
+    function finalizarFactura() {
+      const tiendaEl = document.getElementById('tienda');
+      const tienda = tiendaEl.value.trim();
+      if (!tienda || carrito.length === 0) {
+        return alert('Agrega nombre de la tienda y productos al carrito');
+      }
+      const fecha = new Date().toISOString().slice(0,10);
+      const folio = 'F-' + contadorFactura++;
+      localStorage.setItem('contadorFactura', contadorFactura);
+      const total = carrito.reduce((sum,p)=>sum + p.cantidad*p.precio,0);
+      const nuevaFactura = { factura: folio, fecha, tienda, productos: carrito, total };
+      facturas.push(nuevaFactura);
+      localStorage.setItem('facturas', JSON.stringify(facturas));
+      cargarFacturas();
+
+      // Limpiar para nueva factura
+      carrito = [];
+      actualizarCarrito();
+      document.getElementById('form-venta').reset();
+      document.getElementById('buscar-producto').value = '';
+      document.getElementById('scan-cart-codigo').value = '';
+      tiendaEl.value = '';
+    }
+
+    // Manejo de facturas existentes
+    function agregarFacturaFila(f,i) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${f.factura}</td>
+        <td>${f.fecha}</td>
+        <td>${f.tienda}</td>
+        <td>$${f.total.toFixed(2)}</td>
+        <td><button class="btn-small" onclick="verFactura(${i})">Ver</button></td>
+        <td><button class="btn-small" onclick="eliminarFactura(${i})">Eliminar</button></td>
+        <td><button class="btn-small" onclick="compartirFactura(${i})">Compartir</button></td>
+      `;
+      document.getElementById('tabla-facturas').appendChild(tr);
+    }
+
+    function cargarFacturas() {
+      const tf = document.getElementById('tabla-facturas');
+      tf.innerHTML = '';
+      facturas.forEach((f,i)=>agregarFacturaFila(f,i));
+    }
+
+    function eliminarFactura(i) {
+      if (!confirm('Eliminar factura?')) return;
+      facturas.splice(i,1);
+      localStorage.setItem('facturas', JSON.stringify(facturas));
+      document.getElementById('detalle-factura').style.display='none';
+      cargarFacturas();
+    }
+
+    function verFactura(i) {
+      const f = facturas[i];
+      let html = `<h3>Factura: ${f.factura}</h3>
+        <p><strong>Fecha:</strong> ${f.fecha}<br/>
+           <strong>Tienda:</strong> ${f.tienda}</p>
+        <div class="table-container"><table>
+          <thead><tr><th>Producto</th><th>Cant.</th><th>Precio</th><th>Total</th></tr></thead><tbody>`;
+      f.productos.forEach(p=>{
+        html += `<tr>
+          <td>${p.nombre}</td><td>${p.cantidad}</td>
+          <td>$${p.precio.toFixed(2)}</td>
+          <td>$${(p.cantidad*p.precio).toFixed(2)}</td>
+        </tr>`;
+      });
+      html += `</tbody></table></div>
+        <p><strong>Total:</strong> $${f.total.toFixed(2)}</p>`;
+      const div = document.getElementById('detalle-factura');
+      div.innerHTML = html; div.style.display='block';
+    }
+
+    function compartirFactura(i) {
+      const f = facturas[i];
+      const width=45, sep='—'.repeat(width);
+      const header=[sep,`Factura: ${f.factura}`,`Fecha  : ${f.fecha}`,
+                    `Tienda : ${f.tienda}`,sep,
+                    'Producto'.padEnd(20)+'Cant.'.padEnd(6)+'Precio'.padEnd(10)+'Total',sep];
+      const body=f.productos.map(p=>
+        p.nombre.padEnd(20)+String(p.cantidad).padEnd(6)+
+        `$${p.precio.toFixed(2)}`.padEnd(10)+`$${(p.cantidad*p.precio).toFixed(2)}`);
+      const footer=[sep,`Total: $${f.total.toFixed(2)}`,sep];
+      const texto=[...header,...body,...footer].join('\n');
+      if (navigator.share) {
+        navigator.share({ title:`Factura ${f.factura}`, text:texto }).catch(()=>{});
+      } else if (navigator.clipboard) {
+        navigator.clipboard.writeText(texto)
+          .then(()=>alert('Factura copiada al portapapeles'))
+          .catch(()=>prompt('Copia manualmente:',texto));
+      } else {
+        prompt('Copia los detalles:',texto);
+      }
+    }
+
+    // Exportar e importar base de datos
+    function exportarDB() {
+      const data=JSON.stringify({inventario,facturas,contadorFactura},null,2);
+      const blob=new Blob([data],{type:'application/json'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=url; a.download=`respaldo-${new Date().toISOString().slice(0,10)}.json`;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a); URL.revokeObjectURL(url);
+    }
+
+    function importarDB() {
+      const input=document.getElementById('import-db-file');
+      const file=input.files[0];
+      if (!file) return alert('Selecciona un archivo');
+      const reader=new FileReader();
+      reader.onload=e=>{
+        try {
+          const obj=JSON.parse(e.target.result);
+          if (!Array.isArray(obj.inventario)||!Array.isArray(obj.facturas)||
+              typeof obj.contadorFactura!=='number') {
+            throw 'Formato inválido';
+          }
+          inventario=obj.inventario; facturas=obj.facturas;
+          contadorFactura=obj.contadorFactura;
+          localStorage.setItem('inventario',JSON.stringify(inventario));
+          localStorage.setItem('facturas',JSON.stringify(facturas));
+          localStorage.setItem('contadorFactura',contadorFactura);
+          cargarDatos(); alert('Respaldo restaurado');
+        } catch(err){
+          alert('Error al importar: '+err);
+        }
+      };
+      reader.readAsText(file);
+      input.value='';
+    }
+  </script>
+</body>
+</html>
